@@ -4,7 +4,7 @@
 
 // number of sites
 #ifndef N
-#define N 32768
+#define N 100
 #endif
 
 // number of sites

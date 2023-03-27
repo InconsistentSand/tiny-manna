@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+tiny_manna
+
+# Data
+*.dat
