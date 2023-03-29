@@ -15,8 +15,9 @@
 
 ### Makefile
 
-- Make force (force to make again)
-- Take flags as variables
+- [x] Make force (force to make again)
+- [ ] Take flags as variables
+- [ ] Allow perf and perf cache as options
 
 ### Bash
 

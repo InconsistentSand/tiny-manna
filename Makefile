@@ -19,3 +19,16 @@ $(TARGET): $(OBJS)
 
 clean:
 	rm -f $(TARGET) *.o
+
+perf: $(TARGET)
+	perf stat ./$(TARGET)
+
+perf_cache: $(TARGET)
+	perf stat -e cache-references,cache-misses ./$(TARGET)
+
+force: clean $(TARGET)
+
+clang: 
+	make $(TARGET) CXX=clang++
+
+.PHONY : perf perf_cache force clang
