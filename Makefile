@@ -31,4 +31,11 @@ force: clean $(TARGET)
 clang: 
 	make $(TARGET) CXX=clang++
 
-.PHONY : perf perf_cache force clang
+
+perf_file: force
+	perf stat -o performance.txt --append ./$(TARGET)
+
+perf_cache_file: force
+	perf stat -o performance.txt --append -e cache-references,cache-misses ./$(TARGET)
+
+.PHONY : clean perf perf_cache force clang perf_file perf_cache_file
