@@ -21,6 +21,8 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <chrono>
+using namespace std::chrono;
 
 typedef std::array<int, N> Manna_Array; // fixed-sized array
 
@@ -128,6 +130,7 @@ int main()
     std::cout << "estado inicial estable de la pila de arena...";
     inicializacion(h);
     std::cout << "LISTO" << std::endl;
+
 #ifdef DEBUG
     imprimir_array(h);
 #endif
@@ -146,7 +149,11 @@ int main()
     int activity;
     int t = 0;
     do {
+        auto start = high_resolution_clock::now();
         activity = descargar(h, dh);
+        auto stop = high_resolution_clock::now();
+        auto duration = duration_cast<nanoseconds>(stop - start);
+        std::cout << "count duration " << duration.count() << std::endl;
         activity_out << activity << "\n";
 #ifdef DEBUG
         imprimir_array(h);
