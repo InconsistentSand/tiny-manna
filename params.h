@@ -4,7 +4,7 @@
 
 // number of sites
 #ifndef N
-#define N 100
+#define N 8000
 #endif
 
 // number of sites
@@ -20,3 +20,5 @@
 #ifndef SEED
 #define SEED time(nullptr)
 #endif
+
+#define METRIC

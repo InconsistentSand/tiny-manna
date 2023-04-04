@@ -33,7 +33,7 @@ clang:
 
 
 perf_file: force
-	perf stat -o performance.txt --append ./$(TARGET)
+	perf stat -r 13 -o performance.txt --append -e cache-references,cache-misses,instructions,cycles,task-clock ./$(TARGET)
 
 perf_cache_file: force
 	perf stat -o performance.txt --append -e cache-references,cache-misses ./$(TARGET)

@@ -145,16 +145,32 @@ int main()
     std::cout << "evolucion de la pila de arena...";
     std::cout.flush();
 
-    std::ofstream activity_out("activity.dat");
+    // std::ofstream activity_out("activity.dat");
     int activity;
     int t = 0;
+#ifdef METRIC
+    long int max_duration = 0;
+    long int sum_duration = 0;
+    long int min_duration = 1<<15;
+#endif
+
     do {
+#ifdef METRIC
         auto start = high_resolution_clock::now();
+#endif
         activity = descargar(h, dh);
+#ifdef METRIC
         auto stop = high_resolution_clock::now();
-        auto duration = duration_cast<nanoseconds>(stop - start);
-        std::cout << "count duration " << duration.count() << std::endl;
-        activity_out << activity << "\n";
+        auto duration = duration_cast<nanoseconds>(stop - start).count();
+        // std::cout << "Metric in iteration " << t << "(in nanoseconds): " << duration.count() << std::endl;
+        sum_duration += (long int)duration;
+        if ((long int)duration < min_duration) {
+            min_duration = (long int)duration;
+        } else if ((long int)duration > max_duration) {
+            max_duration = (long int)duration;
+        }
+#endif
+        // activity_out << activity << "\n";
 #ifdef DEBUG
         imprimir_array(h);
 #endif
@@ -162,6 +178,8 @@ int main()
     } while (activity > 0 && t < NSTEPS); // si la actividad decae a cero, esto no evoluciona mas...
 
     std::cout << "LISTO: " << ((activity > 0) ? ("se acabo el tiempo\n") : ("la actividad decayo a cero\n")) << std::endl;
+
+    std::cout << "METRICA\n Duracion Promedio: " << sum_duration/t << "\n Duracion Maxima: " << max_duration << "\n Duracion Minima: " << min_duration << "\n" << std::endl;
 
     return 0;
 }
