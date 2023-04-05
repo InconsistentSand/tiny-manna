@@ -2,7 +2,7 @@
 CXX = g++
 
 # Flags
-CXXFLAGS = -Wall -Wextra -std=c++14
+CXXFLAGS = -Wall -Wextra -std=c++17
 CPPFLAGS =
 LDFLAGS =
 

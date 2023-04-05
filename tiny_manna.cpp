@@ -22,6 +22,7 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <climits>
 using namespace std::chrono;
 
 typedef std::array<int, N> Manna_Array; // fixed-sized array
@@ -77,8 +78,8 @@ static void desestabilizacion_inicial(Manna_Array& h)
 
             // corrijo por condiciones periodicas
             if (j == N) {
-                j = 0;
             } else if (j == -1) {
+                j = 0;
                 j = N - 1;
             }
 
@@ -151,7 +152,7 @@ int main()
 #ifdef METRIC
     long int max_duration = 0;
     long int sum_duration = 0;
-    long int min_duration = 1<<15;
+    long int min_duration = LONG_MAX;
 #endif
 
     do {
