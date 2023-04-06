@@ -23,9 +23,11 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <vector>
 #include <chrono>
 #include <climits>
+#include <random>
 using namespace std::chrono;
 
 typedef std::array<int, N> Manna_Array; // fixed-sized array
+typedef std::mt19937 randomizer;
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -68,13 +70,13 @@ El problema con la condicion inicial de arriba es que es estable, no tiene sitio
 y por tanto no evolucionara. Hay que desestabilizarla de alguna forma.
 Una forma es agarrar cada granito, y tirarlo a su izquierda o derecha aleatoriamente...
 */
-static void desestabilizacion_inicial(Manna_Array& h)
+static void desestabilizacion_inicial(Manna_Array& h, randomizer generator)
 {
     std::vector<int> index_a_incrementar;
     for (int i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
-            int j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
+            int j = i + 2 * (generator() % 2) - 1; // izquierda o derecha
 
             // corrijo por condiciones periodicas
             if (j == N) {
@@ -93,7 +95,7 @@ static void desestabilizacion_inicial(Manna_Array& h)
 
 
 // DESCARGA DE ACTIVOS Y UPDATE --------------------------------------------------------
-static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
+static unsigned int descargar(Manna_Array& h, Manna_Array& dh, randomizer generator)
 {
     dh.fill(0);
 
@@ -102,7 +104,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
         if (h[i] > 1) {
             for (int j = 0; j < h[i]; ++j) {
                 // sitio receptor a la izquierda o derecha teniendo en cuenta condiciones periodicas
-                int k = (i + 2 * (rand() % 2) - 1 + N) % N;
+                int k = (i + 2 * (generator() % 2) - 1 + N) % N;
                 ++dh[k];
             }
             h[i] = 0;
@@ -123,7 +125,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
 int main()
 {
 
-    srand(SEED);
+    randomizer generator(SEED);
 
     // nro granitos en cada sitio, y su update
     Manna_Array h, dh;
@@ -137,7 +139,7 @@ int main()
 #endif
 
     std::cout << "estado inicial desestabilizado de la pila de arena...";
-    desestabilizacion_inicial(h);
+    desestabilizacion_inicial(h,generator);
     std::cout << "LISTO" << std::endl;
 #ifdef DEBUG
     imprimir_array(h);
@@ -159,7 +161,7 @@ int main()
 #ifdef METRIC
         auto start = high_resolution_clock::now();
 #endif
-        activity = descargar(h, dh);
+        activity = descargar(h, dh, generator);
 #ifdef METRIC
         auto stop = high_resolution_clock::now();
         auto duration = duration_cast<nanoseconds>(stop - start).count();
