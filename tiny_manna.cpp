@@ -97,6 +97,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
 {
     dh.fill(0);
 
+    unsigned int nroactivos = 0;
     for (int i = 0; i < N; ++i) {
         // si es activo lo descargo aleatoriamente
         if (h[i] > 1) {
@@ -107,13 +108,15 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
             }
             h[i] = 0;
         }
+        if (i > 1) {
+            h[i-1] += dh[i-1];
+            nroactivos += (h[i-1] > 1);
+        }
     }
-
-    unsigned int nroactivos = 0;
-    for (int i = 0; i < N; ++i) {
-        h[i] += dh[i];
-        nroactivos += (h[i] > 1);
-    }
+    
+    h[N-1] = dh[N-1];
+    h[0] = dh[0];
+    nroactivos += (h[N-1] > 1) + (h[0] > 1);
 
     return nroactivos;
 }
