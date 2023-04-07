@@ -23,9 +23,20 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <vector>
 #include <chrono>
 #include <climits>
+#include <random>
 using namespace std::chrono;
 
 typedef std::array<int, N> Manna_Array; // fixed-sized array
+
+
+int randomnumber() {
+    // Making rng static ensures that it stays the same
+    // Between different invocations of the function
+    static std::default_random_engine rng(SEED);
+
+    std::uniform_real_distribution<float> dist(0, INT_MAX); 
+    return (int)dist(rng);
+}
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -74,7 +85,7 @@ static void desestabilizacion_inicial(Manna_Array& h)
     for (int i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
-            int j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
+            int j = i + 2 * (randomnumber() % 2) - 1; // izquierda o derecha
 
             // corrijo por condiciones periodicas
             if (j == N) {
@@ -102,7 +113,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
         if (h[i] > 1) {
             for (int j = 0; j < h[i]; ++j) {
                 // sitio receptor a la izquierda o derecha teniendo en cuenta condiciones periodicas
-                int k = (i + 2 * (rand() % 2) - 1 + N) % N;
+                int k = (i + 2 * (randomnumber() % 2) - 1 + N) % N;
                 ++dh[k];
             }
             h[i] = 0;
@@ -123,7 +134,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
 int main()
 {
 
-    srand(SEED);
+    // srand(SEED);
 
     // nro granitos en cada sitio, y su update
     Manna_Array h, dh;
