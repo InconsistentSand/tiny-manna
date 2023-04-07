@@ -101,11 +101,11 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
     for (int i = 0; i < N; ++i) {
         // si es activo lo descargo aleatoriamente
         if (h[i] > 1) {
-            for (int j = 0; j < h[i]; ++j) {
-                // sitio receptor a la izquierda o derecha teniendo en cuenta condiciones periodicas
-                int k = (i + 2 * (rand() % 2) - 1 + N) % N;
-                ++dh[k];
-            }
+            int left = rand() % h[i];
+            int right = h[i] - left;
+            dh[(i-1+N)%N] += left;
+            dh[(i+1)%N] += right;
+
             h[i] = 0;
         }
         if (i > 1) {
@@ -113,7 +113,7 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
             nroactivos += (h[i-1] > 1);
         }
     }
-    
+
     h[N-1] = dh[N-1];
     h[0] = dh[0];
     nroactivos += (h[N-1] > 1) + (h[0] > 1);
