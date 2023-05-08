@@ -25,7 +25,7 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <climits>
 using namespace std::chrono;
 
-typedef std::array<int, N> Manna_Array; // fixed-sized array
+typedef std::array<short, N> Manna_Array; // fixed-sized array
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -35,8 +35,8 @@ lo mas aproximada (exacta cuando N->infinito) al numero real DENSITY, podemos ha
 */
 static void inicializacion(Manna_Array& h)
 {
-    for (int i = 0; i < N; ++i) {
-        h[i] = static_cast<int>((i + 1) * DENSITY) - static_cast<int>(i * DENSITY);
+    for (short i = 0; i < N; ++i) {
+        h[i] = static_cast<short>((i + 1) * DENSITY) - static_cast<short>(i * DENSITY);
     }
 }
 
@@ -70,11 +70,11 @@ Una forma es agarrar cada granito, y tirarlo a su izquierda o derecha aleatoriam
 */
 static void desestabilizacion_inicial(Manna_Array& h)
 {
-    std::vector<int> index_a_incrementar;
-    for (int i = 0; i < N; ++i) {
+    std::vector<short> index_a_incrementar;
+    for (short i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
-            int j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
+            short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
 
             // corrijo por condiciones periodicas
             if (j == N) {
@@ -86,7 +86,7 @@ static void desestabilizacion_inicial(Manna_Array& h)
             index_a_incrementar.push_back(j);
         }
     }
-    for (unsigned int i = 0; i < index_a_incrementar.size(); ++i) {
+    for (unsigned short i = 0; i < index_a_incrementar.size(); ++i) {
         h[index_a_incrementar[i]] += 1;
     }
 }
@@ -97,12 +97,15 @@ static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
 {
     dh.fill(0);
 
-    unsigned int nroactivos = 0;
-    for (int i = 0; i < N; ++i) {
+    short left = 0;
+    short right = 0;
+
+    unsigned short nroactivos = 0;
+    for (short i = 0; i < N; ++i) {
         // si es activo lo descargo aleatoriamente
         if (h[i] > 1) {
-            int left = rand() % h[i];
-            int right = h[i] - left;
+            left = rand() % h[i];
+            right = h[i] - left;
             dh[(i-1+N)%N] += left;
             dh[(i+1)%N] += right;
 
@@ -150,7 +153,7 @@ int main()
     std::cout.flush();
 
     // std::ofstream activity_out("activity.dat");
-    int activity;
+    short activity;
     int t = 0;
 #ifdef METRIC
     long int max_duration = 0;
