@@ -25,7 +25,7 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <climits>
 using namespace std::chrono;
 
-typedef std::array<short, N> Manna_Array; // fixed-sized array
+typedef short * Manna_Array; // fixed-sized array
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -33,7 +33,7 @@ typedef std::array<short, N> Manna_Array; // fixed-sized array
 Para generar una condicion inicial suficientemente uniforme con una densidad
 lo mas aproximada (exacta cuando N->infinito) al numero real DENSITY, podemos hacer asi:
 */
-static void inicializacion(Manna_Array& h)
+static void inicializacion(Manna_Array h)
 {
     for (short i = 0; i < N; ++i) {
         h[i] = static_cast<short>((i + 1) * DENSITY) - static_cast<short>(i * DENSITY);
@@ -42,7 +42,7 @@ static void inicializacion(Manna_Array& h)
 
 
 #ifdef DEBUG
-static void imprimir_array(const Manna_Array& h)
+static void imprimir_array(const Manna_Array h)
 {
     int nrogranitos = 0;
     int nrogranitos_activos = 0;
@@ -68,7 +68,7 @@ El problema con la condicion inicial de arriba es que es estable, no tiene sitio
 y por tanto no evolucionara. Hay que desestabilizarla de alguna forma.
 Una forma es agarrar cada granito, y tirarlo a su izquierda o derecha aleatoriamente...
 */
-static void desestabilizacion_inicial(Manna_Array& h)
+static void desestabilizacion_inicial(Manna_Array h)
 {
     std::vector<short> index_a_incrementar;
     for (short i = 0; i < N; ++i) {
@@ -93,9 +93,10 @@ static void desestabilizacion_inicial(Manna_Array& h)
 
 
 // DESCARGA DE ACTIVOS Y UPDATE --------------------------------------------------------
-static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
+static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict__ b)
 {
-    dh.fill(0);
+    short * h = (short *) __builtin_assume_aligned(a, 16);
+    short * dh = (short *) __builtin_assume_aligned(b, 16);
 
     short left = 0;
     short right = 0;
@@ -132,7 +133,8 @@ int main()
     srand(SEED);
 
     // nro granitos en cada sitio, y su update
-    Manna_Array h, dh;
+    Manna_Array h = (short *) calloc(N, sizeof(short));
+    Manna_Array dh = (short *) calloc(N, sizeof(short));
 
     std::cout << "estado inicial estable de la pila de arena...";
     inicializacion(h);
@@ -189,6 +191,9 @@ int main()
 #ifdef METRIC
     std::cout << "METRICA\n Duracion Promedio: " << sum_duration/t << "\n Duracion Maxima: " << max_duration << "\n Duracion Minima: " << min_duration << "\n" << std::endl;
 #endif
+
+    free(h);
+    free(dh);
 
     return 0;
 }

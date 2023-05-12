@@ -23,6 +23,9 @@ clean:
 perf: $(TARGET)
 	perf stat -r 13 -e cache-references,cache-misses,instructions,cycles,task-clock ./$(TARGET)
 
+perf1: $(TARGET)
+	perf stat -e cache-references,cache-misses,instructions,cycles,task-clock ./$(TARGET)
+
 force: clean $(TARGET)
 
 clang: 
