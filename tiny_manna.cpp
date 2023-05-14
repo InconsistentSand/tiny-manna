@@ -74,7 +74,7 @@ static void desestabilizacion_inicial(Manna_Array h)
     for (unsigned short i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
-            unsigned short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
+            short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
 
             // corrijo por condiciones periodicas
             if (j == N) {
@@ -95,8 +95,8 @@ static void desestabilizacion_inicial(Manna_Array h)
 // DESCARGA DE ACTIVOS Y UPDATE --------------------------------------------------------
 static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict__ b)
 {
-    short * h = (unsigned short *) __builtin_assume_aligned(a, 16);
-    short * dh = (unsigned short *) __builtin_assume_aligned(b, 16);
+    unsigned short * h = (unsigned short *) __builtin_assume_aligned(a, 16);
+    unsigned short * dh = (unsigned short *) __builtin_assume_aligned(b, 16);
 
     unsigned short left = 0;
     unsigned short right = 0;
