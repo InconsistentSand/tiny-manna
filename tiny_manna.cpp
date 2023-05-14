@@ -25,7 +25,7 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <climits>
 using namespace std::chrono;
 
-typedef short * Manna_Array; // fixed-sized array
+typedef unsigned short * Manna_Array; // fixed-sized array
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -36,7 +36,7 @@ lo mas aproximada (exacta cuando N->infinito) al numero real DENSITY, podemos ha
 static void inicializacion(Manna_Array h)
 {
     for (short i = 0; i < N; ++i) {
-        h[i] = static_cast<short>((i + 1) * DENSITY) - static_cast<short>(i * DENSITY);
+        h[i] = static_cast<unsigned short>((i + 1) * DENSITY) - static_cast<unsigned short>(i * DENSITY);
     }
 }
 
@@ -71,10 +71,10 @@ Una forma es agarrar cada granito, y tirarlo a su izquierda o derecha aleatoriam
 static void desestabilizacion_inicial(Manna_Array h)
 {
     std::vector<short> index_a_incrementar;
-    for (short i = 0; i < N; ++i) {
+    for (unsigned short i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
-            short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
+            unsigned short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
 
             // corrijo por condiciones periodicas
             if (j == N) {
@@ -95,11 +95,11 @@ static void desestabilizacion_inicial(Manna_Array h)
 // DESCARGA DE ACTIVOS Y UPDATE --------------------------------------------------------
 static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict__ b)
 {
-    short * h = (short *) __builtin_assume_aligned(a, 16);
-    short * dh = (short *) __builtin_assume_aligned(b, 16);
+    short * h = (unsigned short *) __builtin_assume_aligned(a, 16);
+    short * dh = (unsigned short *) __builtin_assume_aligned(b, 16);
 
-    short left = 0;
-    short right = 0;
+    unsigned short left = 0;
+    unsigned short right = 0;
 
     unsigned short nroactivos = 0;
     for (short i = 0; i < N; ++i) {
@@ -133,8 +133,8 @@ int main()
     srand(SEED);
 
     // nro granitos en cada sitio, y su update
-    Manna_Array h = (short *) calloc(N, sizeof(short));
-    Manna_Array dh = (short *) calloc(N, sizeof(short));
+    Manna_Array h = (unsigned short *) calloc(N, sizeof(short));
+    Manna_Array dh = (unsigned short *) calloc(N, sizeof(short));
 
     std::cout << "estado inicial estable de la pila de arena...";
     inicializacion(h);
