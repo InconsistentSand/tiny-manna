@@ -23,6 +23,7 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <vector>
 #include <chrono>
 #include <climits>
+#include <stdlib.h>
 using namespace std::chrono;
 
 typedef unsigned short * Manna_Array; // fixed-sized array
@@ -102,25 +103,24 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     unsigned short right = 0;
 
     unsigned short nroactivos = 0;
-    for (short i = 0; i < N; ++i) {
-        // si es activo lo descargo aleatoriamente
-        if (h[i] > 1) {
-            left = rand() % h[i];
-            right = h[i] - left;
-            dh[(i-1+N)%N] += left;
-            dh[(i+1)%N] += right;
 
-            h[i] = 0;
-        }
-        if (i > 1) {
-            h[i-1] += dh[i-1];
-            nroactivos += (h[i-1] > 1);
-        }
+    for (unsigned short i = 0; i < N; ++i) {
+        unsigned short mask = (h[i] > 1) ? -1 : 0;
+        left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
+        right = mask & (h[i] - left);
+        dh[(i - 1 + N) % N] += left;
+        dh[(i + 1) % N] += right;
+        h[i] = mask & 0;
+
+        unsigned short mask_prev = (i > 1) ? -1 : 0;
+        h[i - 1] += mask_prev & dh[i - 1];
+        nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
     }
 
-    h[N-1] = dh[N-1];
+    h[N - 1] = dh[N - 1];
     h[0] = dh[0];
-    nroactivos += (h[N-1] > 1) + (h[0] > 1);
+    nroactivos += (h[N - 1] > 1) ? 1 : 0;
+    nroactivos += (h[0] > 1) ? 1 : 0;
 
     return nroactivos;
 }
