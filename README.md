@@ -10,21 +10,22 @@ The SIMD folder has an intrinsic approach with 256bits vector instructions (usin
 
 ## How to run
 
-For a naive run, you can use 
+For a *naive* run, you can use: 
 
 ```bash
 make
-tiny_manna
+./tiny_manna
 ```
 
-But for more efficiency, you can make use of the gcc flags like:
+But for more efficiency, you can specify compilator and flags like:
 
 ```bash
 make CXX=g++ CXXFLAGS="-std=c++17 -O3 -march=native"
-tiny_manna
+./tiny_manna
 ```
 
+See the Makefile for more options
 
-### Original version based upon
+## Original version 
 
 The original code of this project is from [here](https://github.com/computacionparalela/tiny_manna)
