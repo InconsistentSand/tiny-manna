@@ -23,10 +23,9 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <vector>
 #include <chrono>
 #include <climits>
-#include <stdlib.h>
 using namespace std::chrono;
 
-typedef unsigned short * Manna_Array; // fixed-sized array
+typedef std::array<short, N> Manna_Array; // fixed-sized array
 
 
 // CONDICION INICIAL ---------------------------------------------------------------
@@ -34,16 +33,16 @@ typedef unsigned short * Manna_Array; // fixed-sized array
 Para generar una condicion inicial suficientemente uniforme con una densidad
 lo mas aproximada (exacta cuando N->infinito) al numero real DENSITY, podemos hacer asi:
 */
-static void inicializacion(Manna_Array h)
+static void inicializacion(Manna_Array& h)
 {
     for (short i = 0; i < N; ++i) {
-        h[i] = static_cast<unsigned short>((i + 1) * DENSITY) - static_cast<unsigned short>(i * DENSITY);
+        h[i] = static_cast<short>((i + 1) * DENSITY) - static_cast<short>(i * DENSITY);
     }
 }
 
 
 #ifdef DEBUG
-static void imprimir_array(const Manna_Array h)
+static void imprimir_array(const Manna_Array& h)
 {
     int nrogranitos = 0;
     int nrogranitos_activos = 0;
@@ -69,10 +68,10 @@ El problema con la condicion inicial de arriba es que es estable, no tiene sitio
 y por tanto no evolucionara. Hay que desestabilizarla de alguna forma.
 Una forma es agarrar cada granito, y tirarlo a su izquierda o derecha aleatoriamente...
 */
-static void desestabilizacion_inicial(Manna_Array h)
+static void desestabilizacion_inicial(Manna_Array& h)
 {
     std::vector<short> index_a_incrementar;
-    for (unsigned short i = 0; i < N; ++i) {
+    for (short i = 0; i < N; ++i) {
         if (h[i] == 1) {
             h[i] = 0;
             short j = i + 2 * (rand() % 2) - 1; // izquierda o derecha
@@ -94,33 +93,33 @@ static void desestabilizacion_inicial(Manna_Array h)
 
 
 // DESCARGA DE ACTIVOS Y UPDATE --------------------------------------------------------
-static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict__ b)
+static unsigned int descargar(Manna_Array& h, Manna_Array& dh)
 {
-    unsigned short * h = (unsigned short *) __builtin_assume_aligned(a, 16);
-    unsigned short * dh = (unsigned short *) __builtin_assume_aligned(b, 16);
+    dh.fill(0);
 
-    unsigned short left = 0;
-    unsigned short right = 0;
+    short left = 0;
+    short right = 0;
 
     unsigned short nroactivos = 0;
+    for (short i = 0; i < N; ++i) {
+        // si es activo lo descargo aleatoriamente
+        if (h[i] > 1) {
+            left = rand() % h[i];
+            right = h[i] - left;
+            dh[(i-1+N)%N] += left;
+            dh[(i+1)%N] += right;
 
-    for (unsigned short i = 0; i < N; ++i) {
-        unsigned short mask = (h[i] > 1) ? -1 : 0;
-        left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
-        right = mask & (h[i] - left);
-        dh[(i - 1 + N) % N] += left;
-        dh[(i + 1) % N] += right;
-        h[i] = mask & 0;
-
-        unsigned short mask_prev = (i > 1) ? -1 : 0;
-        h[i - 1] += mask_prev & dh[i - 1];
-        nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
+            h[i] = 0;
+        }
+        if (i > 1) {
+            h[i-1] += dh[i-1];
+            nroactivos += (h[i-1] > 1);
+        }
     }
 
-    h[N - 1] = dh[N - 1];
+    h[N-1] = dh[N-1];
     h[0] = dh[0];
-    nroactivos += (h[N - 1] > 1) ? 1 : 0;
-    nroactivos += (h[0] > 1) ? 1 : 0;
+    nroactivos += (h[N-1] > 1) + (h[0] > 1);
 
     return nroactivos;
 }
@@ -133,8 +132,7 @@ int main()
     srand(SEED);
 
     // nro granitos en cada sitio, y su update
-    Manna_Array h = (unsigned short *) calloc(N, sizeof(short));
-    Manna_Array dh = (unsigned short *) calloc(N, sizeof(short));
+    Manna_Array h, dh;
 
     std::cout << "estado inicial estable de la pila de arena...";
     inicializacion(h);
@@ -191,9 +189,6 @@ int main()
 #ifdef METRIC
     std::cout << "METRICA\n Duracion Promedio: " << sum_duration/t << "\n Duracion Maxima: " << max_duration << "\n Duracion Minima: " << min_duration << "\n" << std::endl;
 #endif
-
-    free(h);
-    free(dh);
 
     return 0;
 }
