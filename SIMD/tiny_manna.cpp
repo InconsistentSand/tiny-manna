@@ -29,6 +29,8 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <random>
 using namespace std::chrono;
 using namespace std;
+#define printear(leftold) cout << _mm256_extract_epi16(leftold,0)<<" "<<_mm256_extract_epi16(leftold,1)<<" "<<_mm256_extract_epi16(leftold,2)<<" "<<_mm256_extract_epi16(leftold,3) << " " << _mm256_extract_epi16(leftold,4)<<" "<<_mm256_extract_epi16(leftold,5)<<" "<<_mm256_extract_epi16(leftold,6)<<" "<<_mm256_extract_epi16(leftold,7) << endl
+// #define DEBUG
 
 typedef unsigned short * Manna_Array; // fixed-sized array
 
@@ -141,7 +143,12 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
 {
     unsigned short * h = (unsigned short *) __builtin_assume_aligned(a, 16);
     unsigned short * dh = (unsigned short *) __builtin_assume_aligned(b, 16);
-    memset(dh, 0, DHSZ*(sizeof(short)));
+    memset(dh, 0, N*(sizeof(short)));
+
+    #ifdef DEBUG
+    cout << "Imprimo DH la primera vez" << endl;
+    imprimir_array(dh);
+    #endif
 
     unsigned short i = 0;
     unsigned short nroactivos = 0;
@@ -162,6 +169,13 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         nroactivos += (mask_prev & (h[i - 1] > 1));
     }
 
+    #ifdef DEBUG
+    cout << "Array post primer iteracion" << endl;
+    imprimir_array(h);
+    imprimir_array(dh);
+    #endif
+
+
     __m256i left = _mm256_loadu_si256((__m256i *) &dh[i-1]);
     __m256i right = zeroes;
 
@@ -172,6 +186,12 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         
         __m256i active_slots;
         bool activity = false;
+
+        #ifdef DEBUG
+        cout << "i = " << i << endl;
+        cout << "slots previous:" << endl;
+        printear(slots);
+        #endif
 
         while(active_slots = _mm256_and_si256(slots_gt1, _mm256_cmpgt_epi16(slots,zeroes)), _mm256_movemask_epi8(active_slots)) {
             activity = true;
@@ -187,6 +207,11 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
 
             slots = _mm256_subs_epu16(slots, _mm256_and_si256(active_slots, ones));       
         }
+
+        #ifdef DEBUG
+        cout << "slots post:" << endl;
+        printear(slots);
+        #endif
 
         __m256i shift_right = shift64right(right);
         __m256i left_to_store = _mm256_adds_epu16(left, shift_right);
@@ -239,7 +264,7 @@ int main()
 
     // nro granitos en cada sitio, y su update
     Manna_Array h = (Manna_Array) aligned_alloc(128, sizeof(short)*N);
-    Manna_Array dh = (Manna_Array) aligned_alloc(128, sizeof(short)*DHSZ);
+    Manna_Array dh = (Manna_Array) aligned_alloc(128, sizeof(short)*N);
 
     std::cout << "estado inicial estable de la pila de arena...";
     inicializacion(h);
@@ -249,14 +274,14 @@ int main()
     imprimir_array(h);
 #endif
 
-    std::cout << "estado inicial desestabilizado de la pila de arena...";
+    std::cout << "estado inicial desestabilizado de la pila de arena..." << "\n";
     desestabilizacion_inicial(h);
     std::cout << "LISTO" << std::endl;
 #ifdef DEBUG
     imprimir_array(h);
 #endif
 
-    std::cout << "evolucion de la pila de arena...";
+    std::cout << "evolucion de la pila de arena..." << "\n";
     std::cout.flush();
 
     // std::ofstream activity_out("activity.dat");
