@@ -27,10 +27,13 @@ Notar que si la densidad de granitos, [Suma_i h[i]/N] es muy baja, la actividad 
 #include <immintrin.h>
 #include <cstring>
 #include <random>
+#include <thread>
+#include <sstream>
 using namespace std::chrono;
 using namespace std;
-#define printear(leftold) cout << _mm256_extract_epi16(leftold,0)<<" "<<_mm256_extract_epi16(leftold,1)<<" "<<_mm256_extract_epi16(leftold,2)<<" "<<_mm256_extract_epi16(leftold,3) << " " << _mm256_extract_epi16(leftold,4)<<" "<<_mm256_extract_epi16(leftold,5)<<" "<<_mm256_extract_epi16(leftold,6)<<" "<<_mm256_extract_epi16(leftold,7) <<" "<< _mm256_extract_epi16(leftold,8)<<" "<<_mm256_extract_epi16(leftold,9)<<" "<<_mm256_extract_epi16(leftold,10)<<" "<<_mm256_extract_epi16(leftold,11) << " " << _mm256_extract_epi16(leftold,12)<<" "<<_mm256_extract_epi16(leftold,13)<<" "<<_mm256_extract_epi16(leftold,14)<<" "<<_mm256_extract_epi16(leftold,15) << endl
-#define DEBUG
+#define printear(leftold) std::cout << _mm256_extract_epi16(leftold,0)<<" "<<_mm256_extract_epi16(leftold,1)<<" "<<_mm256_extract_epi16(leftold,2)<<" "<<_mm256_extract_epi16(leftold,3) << " " << _mm256_extract_epi16(leftold,4)<<" "<<_mm256_extract_epi16(leftold,5)<<" "<<_mm256_extract_epi16(leftold,6)<<" "<<_mm256_extract_epi16(leftold,7) <<" "<< _mm256_extract_epi16(leftold,8)<<" "<<_mm256_extract_epi16(leftold,9)<<" "<<_mm256_extract_epi16(leftold,10)<<" "<<_mm256_extract_epi16(leftold,11) << " " << _mm256_extract_epi16(leftold,12)<<" "<<_mm256_extract_epi16(leftold,13)<<" "<<_mm256_extract_epi16(leftold,14)<<" "<<_mm256_extract_epi16(leftold,15) << endl
+//#define DEBUG
+#define DEBUG_IMPRIMIR_ARRAY_IN_PLACE
 
 typedef unsigned short * Manna_Array; // fixed-sized array
 
@@ -48,7 +51,7 @@ static void inicializacion(Manna_Array h)
 }
 
 
-#ifdef DEBUG
+#ifdef DEBUG_IMPRIMIR_ARRAY_IN_PLACE
 static void imprimir_array(const Manna_Array h)
 {
     int nrogranitos = 0;
@@ -76,9 +79,14 @@ static void imprimir_dh(const Manna_Array dh)
         nrogranitos += dh[i];
     }
     std::cout << "\n";
-    std::cout << "Hay " << nrogranitos << " granitos en total por sumar a h\n";
+    std::cout << "Hay " << nrogranitos << " granitos en este array\n";
 }
 
+void get_thread_id() {
+  std::stringstream ss("0x");
+  ss << std::hex << std::this_thread::get_id();
+  std::cout << "Thread ID: " << ss.str() << endl;
+}
 
 
 #endif
@@ -166,6 +174,8 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     short int_left = 0;
     short int_right = 0;
     short loop_end = 0;
+    short nsimd_minus_one = 0;
+    short nsimd_exactly = 0;
 
     // Podemos hacer el primero solo una vez, así que pido single thread
     //#pragma omp single nowait
@@ -175,7 +185,8 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         int_right = mask & (h[i] - int_left);
 
         // #ifdef DEBUG
-        // cout << "Para i = " << i << " int_left es " << int_left << " e int_right es " << int_right <<  endl;
+        // std::cout << "Para i = " << i << " int_left es " << int_left << " e int_right es " << int_right <<  endl;
+        // std::cout << "Para i-1 = " << i-1 << " dh[" << i-1 << "] es " << dh[i-1] << endl;
         // imprimir_dh(h);
         // imprimir_dh(dh);
         // #endif        
@@ -184,85 +195,140 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         dh[(i + 1) % N] += int_right;
         h[i] = (h[i] > 1) ? mask & 0 : h[i];
         // Horrible way to ensure we're adding the last value
-        loop_end += (i==0)*int_left;
+        //loop_end += (i==0)*int_left;
 
         short mask_prev = (i >= 1) ? -1 : 0;
         h[i - 1] += mask_prev & dh[i - 1];
+        dh[i - 1] = 0;
         nroactivos += (mask_prev & (h[i - 1] > 1));
 
-        #ifdef DEBUG
-        cout << "Loop end: " << loop_end << endl;
+        // #ifdef DEBUG
+        // std::cout << "Para i-1 = " << i-1 << " dh[" << i-1 << "] es " << dh[i-1] << endl;
         // imprimir_dh(h);
         // imprimir_dh(dh);
-        #endif        
+        // #endif        
 
     }
 
+    nsimd_minus_one = dh[NSIMD-1];
+    nsimd_exactly = dh[NSIMD];
+    dh[NSIMD-1] = 0; 
+    dh[NSIMD] = 0; 
+    
+    __m256i left = _mm256_loadu_si256((__m256i *) &dh[i-1]);
+    __m256i right = zeroes;
+
     #ifdef DEBUG
-    cout << "Array post primer iteracion" << endl;
+    std::cout << "Array post primer iteracion" << endl;
     imprimir_array(h);
     imprimir_dh(dh);
     #endif
 
+    __m256i slots;
+    __m256i slots_gt1;
+    __m256i active_slots;
+    __m256i randomright;
+    __m256i randomleft;
+    __m256i addright;
+    __m256i addleft;
+    __m256i shift_right;
+    __m256i left_to_store;
+    __m256i tmp;
+    bool activity;
+    unsigned char random;
+    unsigned short j;
 
-    __m256i left = _mm256_loadu_si256((__m256i *) &dh[i-1]);
-    __m256i right = zeroes;
+    #pragma omp parallel default(none) firstprivate(i,j, int_left, int_right, left, right, slots, slots_gt1, active_slots, randomright, randomleft, addright, addleft, shift_right, left_to_store, tmp, activity, random) shared(cout, h, dh, ones, zeroes, MASK) num_threads(4) reduction(+:nroactivos)
+    {
+        #pragma omp for 
+        for (i = NSIMD; i < N - (N%NSIMD); i+=NSIMD) {
+            j=i;
 
-    //#pragma omp parallel private(i, int_left, int_right) shared(nroactivos,h) num_threads(1) 
-    //{
-        for (; i < N - (N%NSIMD); i+=NSIMD) {
-            __m256i slots = _mm256_load_si256((__m256i *) &h[i]);
-            __m256i slots_gt1 = _mm256_cmpgt_epi16(slots, ones);
+            #ifdef DEBUG
+            #pragma omp critical
+            {
+            get_thread_id();
+            printear(slots);
+            std::cout << " Initial left:" << endl;
+            printear(left);
+            std::cout << " Initial right:" << endl;
+            printear(right);
+            std::cout << "} " << endl;
+            }
+            #endif
+
+            slots = _mm256_load_si256((__m256i *) &h[i]);
+            slots_gt1 = _mm256_cmpgt_epi16(slots, ones);
+
+            activity = false;
             
-            __m256i active_slots;
-            bool activity = false;
-
-            // #ifdef DEBUG
-            // cout << "Iniciando loop con i = " << i << endl;
-            // cout << "Inicio de slots :" << endl;
-            // printear(slots);
-            // #endif
+            #ifdef DEBUG
+            #pragma omp critical 
+            {
+            get_thread_id();
+            std::cout << "{ " << endl;
+            std::cout << " Iniciando loop con i = " << i << endl;
+            std::cout << " Inicio de slots :" << endl;
+            printear(slots);
+            std::cout << "} " << endl;
+            }
+            #endif
 
             while(active_slots = _mm256_and_si256(slots_gt1, _mm256_cmpgt_epi16(slots,zeroes)), _mm256_movemask_epi8(active_slots)) {
                 activity = true;
-                unsigned char random = randchar();
-                __m256i randomright = MASK[random];
-                __m256i randomleft = _mm256_xor_si256(randomright, ones);
+                random = randchar();
+                randomright = MASK[random];
+                randomleft = _mm256_xor_si256(randomright, ones);
 
-                __m256i addright = _mm256_and_si256(randomright, active_slots);
-                __m256i addleft = _mm256_and_si256(randomleft, active_slots);
+                addright = _mm256_and_si256(randomright, active_slots);
+                addleft = _mm256_and_si256(randomleft, active_slots);
 
                 left = _mm256_adds_epu16(left, addleft);
                 right = _mm256_adds_epu16(right, addright);
 
                 slots = _mm256_subs_epu16(slots, _mm256_and_si256(active_slots, ones));       
             
-                // #ifdef DEBUG
-                // cout << "i = " << i << endl;
-                // cout << "slots:" << endl;
-                // printear(slots);
-                // #endif
+                #ifdef DEBUG
+                #pragma omp critical
+                {
+                get_thread_id();
+                std::cout << "{ " << endl;
+                std::cout << " i = " << i << endl;
+                std::cout << " slots:" << endl;
+                printear(slots);
+                std::cout << " left:" << endl;
+                printear(left);
+                std::cout << " right:" << endl;
+                printear(right);
+                std::cout << "} " << endl;
+                }
+                #endif
             
             }
 
-            // #ifdef DEBUG
-            // cout << "Slots post loop con i:" << i << endl;
-            // printear(slots);
-            // #endif
+            shift_right = shift64right(right);
+            left_to_store = _mm256_adds_epu16(left, shift_right);
 
-            __m256i shift_right = shift64right(right);
-            __m256i left_to_store = _mm256_adds_epu16(left, shift_right);
-
-            // #ifdef DEBUG
-            // cout << "left_to_store (right shifteado 64):" << endl;
-            // printear(left_to_store);
-            // #endif
+            #ifdef DEBUG
+            #pragma omp critical 
+            {
+                get_thread_id();
+                std::cout << "{ " << endl;
+                std::cout << " Slots post loop con i:" << i << endl;
+                std::cout << " ";
+                printear(slots);
+                std::cout << " left_to_store (right shifteado 64):" << endl;
+                std::cout << " ";
+                printear(left_to_store);
+                std::cout << "} " << endl;
+            }
+            #endif
 
             left = shift192left(right);
             right = zeroes;
 
             if(activity) _mm256_store_si256((__m256i *) &h[i], slots);
-            
+
             if(! _mm256_testz_si256(left_to_store, left_to_store)) {
             
                 slots = _mm256_loadu_si256((__m256i *) &h[i-1]);
@@ -270,57 +336,90 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
 
                 _mm256_storeu_si256((__m256i *) &h[i-1], slots);
 
-                __m256i tmp = _mm256_cmpgt_epi16(slots, ones);
+                tmp = _mm256_cmpgt_epi16(slots, ones);
                 nroactivos += __builtin_popcount(_mm256_movemask_epi8(tmp))/2;
             }
-            // #ifdef DEBUG
-            // cout << "left: " << endl;
-            // printear(left); 
-            // cout << "right: " << endl;
-            // printear(right); 
-            // cout << "ahora post for recorrido h:" << endl;
-            // imprimir_dh(h);
-            // cout << "ahora dh post for recorrido:" << endl;
-            // imprimir_dh(dh);
-            // #endif
+            #ifdef DEBUG
+            #pragma omp critical 
+            {
+            get_thread_id();
+            std::cout << "{ " << endl;    
+            std::cout << " left: " << endl;
+            std::cout << " ";
+            printear(left);
+            std::cout << " right: " << endl;
+            std::cout << " ";
+            printear(right); 
+            std::cout << " ahora post for recorrido h:" << endl;
+            imprimir_dh(h);
+            std::cout << " ahora dh post for recorrido:" << endl;
+            imprimir_dh(dh);
+            std::cout << "} " << endl;
+            }
+            #endif
         }
+        j+=i;
     
-    _mm256_storeu_si256((__m256i *) &dh[(i-1)%N], left);
+        //_mm256_storeu_si256((__m256i *) &dh[(i-1)%N], left);
 
-    //Border case en el que es multiplo de 16 y el último valor no cruza para el otro lado de la pila.
-    dh[0] = (i==N)*_mm256_extract_epi16(left,0);
+        h[j%N] += _mm256_extract_epi16(left,0);
+        h[(j+1)%N] += _mm256_extract_epi16(left,1);
 
-    #ifdef DEBUG
-    cout << "Array post GRAN iteracion" << endl;
-    imprimir_array(h);
-    imprimir_dh(dh);
-    #endif
-    //}
+        #ifdef DEBUG
+        #pragma omp critical 
+        {
+        get_thread_id();
+        std::cout << "{ " << endl;    
+        std::cout << " Outside of for, last points, being h[" << j%N << "] = " << h[j%N] << endl;
+        std::cout << " and, h[" << (j+1)%N << "] = " << h[(j+1)%N] << endl;
+        std::cout << "} " << endl;
+        }
+        #endif
 
-    for (; i < N; i++) {
-        short mask = (h[i] > 1) ? -1 : 0;
-        int_left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
-        int_right = mask & (h[i] - int_left);
-        dh[(i - 1 + N) % N] += int_left;
-        dh[(i + 1) % N] += int_right;
-
-        h[i] = (h[i] > 1) ? mask & 0 : h[i];
-
-        short mask_prev = (i > 1) ? -1 : 0;
-        h[i - 1] += mask_prev & dh[(i-1)];
-        nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
     }
+    
+        //Border case en el que es multiplo de 16 y el último valor no cruza para el otro lado de la pila.
+        dh[0] = (i==N)*_mm256_extract_epi16(left,1);
 
-    h[N - 1] += dh[(N-1)]; 
-    h[0] += dh[0];
-    nroactivos += (h[N - 1] > 1);
-    nroactivos += (h[0] > 1);
+        #ifdef DEBUG
+        std::cout << "Array post GRAN iteracion" << endl;
+        imprimir_array(h);
+        imprimir_dh(dh);
+        std::cout << "I = " << i << endl;
+        #endif
+        //}
 
-    #ifdef DEBUG
-    cout << "Array final iteracion" << endl;
-    imprimir_array(h);
-    imprimir_dh(dh);
-    #endif
+        // for (; i < N; i++) {
+        //         #ifdef DEBUG
+        //         std::cout << "ENTRE" << endl << "ENTRE" << endl << "ENTRE" << endl;
+        //         #endif
+        //     short mask = (h[i] > 1) ? -1 : 0;
+        //     int_left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
+        //     int_right = mask & (h[i] - int_left);
+        //     dh[(i - 1 + N) % N] += int_left;
+        //     dh[(i + 1) % N] += int_right;
+
+        //     h[i] = (h[i] > 1) ? mask & 0 : h[i];
+
+        //     short mask_prev = (i > 1) ? -1 : 0;
+        //     h[i - 1] += mask_prev & dh[(i-1)];
+        //     nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
+        // }
+
+        h[NSIMD-1] += nsimd_minus_one;
+        h[NSIMD] += nsimd_exactly; 
+        h[N - 1] += dh[(N-1)]+loop_end; 
+        h[0] += dh[0];
+        //Sumo todos los casos borde.
+        nroactivos += (h[NSIMD] > 1) + (h[NSIMD-1]>1) + (h[N - 1] > 1) + (h[0] > 1);
+
+
+        #ifdef DEBUG
+        std::cout << "Array final iteracion" << endl;
+        imprimir_array(h);
+        imprimir_dh(dh);
+        #endif
+    
 
     return nroactivos;
 }
@@ -332,6 +431,7 @@ int main()
 
     srand(SEED);
     randinit();
+    std::cout << "JORGEEEE" << endl;
 
     // nro granitos en cada sitio, y su update
     Manna_Array h = (Manna_Array) aligned_alloc(128, sizeof(short)*N);
@@ -381,10 +481,10 @@ int main()
         }
 #endif
         // activity_out << activity << "\n";
-#ifdef DEBUG
-        // cout << endl << endl <<"sali de actividad" << endl << endl;
+#ifdef DEBUG_IMPRIMIR_ARRAY_IN_PLACE
+        std::cout << endl << endl <<"sali de actividad" << endl << endl;
         imprimir_array(h);
-        cout << "ahora dh" << endl;
+        std::cout << "ahora dh" << endl;
         imprimir_dh(dh);
 #endif
         ++t;
@@ -395,9 +495,9 @@ int main()
 #ifdef METRIC
     std::cout << "METRICA\n Duracion Promedio: " << sum_duration/t << "\n Duracion Maxima: " << max_duration << "\n Duracion Minima: " << min_duration << "\n" << std::endl;
 #endif
-
-    free(h);
-    free(dh);
+    
+    std::free(h);
+    std::free(dh);
 
     return 0;
 }
