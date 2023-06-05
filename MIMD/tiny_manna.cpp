@@ -173,40 +173,22 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
 
     short int_left = 0;
     short int_right = 0;
-    short loop_end = 0;
     short nsimd_minus_one = 0;
     short nsimd_exactly = 0;
 
-    // Podemos hacer el primero solo una vez, así que pido single thread
-    //#pragma omp single nowait
     for (; i < NSIMD; i++) {
         short mask = (h[i] > 1) ? -1 : 0;
         int_left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
         int_right = mask & (h[i] - int_left);
 
-        // #ifdef DEBUG
-        // std::cout << "Para i = " << i << " int_left es " << int_left << " e int_right es " << int_right <<  endl;
-        // std::cout << "Para i-1 = " << i-1 << " dh[" << i-1 << "] es " << dh[i-1] << endl;
-        // imprimir_dh(h);
-        // imprimir_dh(dh);
-        // #endif        
-
         dh[(i - 1 + N) % N] += int_left;
         dh[(i + 1) % N] += int_right;
         h[i] = (h[i] > 1) ? mask & 0 : h[i];
-        // Horrible way to ensure we're adding the last value
-        //loop_end += (i==0)*int_left;
 
         short mask_prev = (i >= 1) ? -1 : 0;
         h[i - 1] += mask_prev & dh[i - 1];
         dh[i - 1] = 0;
         nroactivos += (mask_prev & (h[i - 1] > 1));
-
-        // #ifdef DEBUG
-        // std::cout << "Para i-1 = " << i-1 << " dh[" << i-1 << "] es " << dh[i-1] << endl;
-        // imprimir_dh(h);
-        // imprimir_dh(dh);
-        // #endif        
 
     }
 
@@ -219,7 +201,7 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     __m256i right = zeroes;
 
     #ifdef DEBUG
-    std::cout << "Array post primer iteracion" << endl;
+    std::cout << "Array post first iteration" << endl;
     imprimir_array(h);
     imprimir_dh(dh);
     #endif
@@ -242,37 +224,13 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     {
         #pragma omp for 
         for (i = NSIMD; i < N - (N%NSIMD); i+=NSIMD) {
+            //This is required because i goes back to NSIMD after the loop.
             j=i;
-
-            #ifdef DEBUG
-            #pragma omp critical
-            {
-            get_thread_id();
-            printear(slots);
-            std::cout << " Initial left:" << endl;
-            printear(left);
-            std::cout << " Initial right:" << endl;
-            printear(right);
-            std::cout << "} " << endl;
-            }
-            #endif
 
             slots = _mm256_load_si256((__m256i *) &h[i]);
             slots_gt1 = _mm256_cmpgt_epi16(slots, ones);
 
             activity = false;
-            
-            #ifdef DEBUG
-            #pragma omp critical 
-            {
-            get_thread_id();
-            std::cout << "{ " << endl;
-            std::cout << " Iniciando loop con i = " << i << endl;
-            std::cout << " Inicio de slots :" << endl;
-            printear(slots);
-            std::cout << "} " << endl;
-            }
-            #endif
 
             while(active_slots = _mm256_and_si256(slots_gt1, _mm256_cmpgt_epi16(slots,zeroes)), _mm256_movemask_epi8(active_slots)) {
                 activity = true;
@@ -317,7 +275,7 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
                 std::cout << " Slots post loop con i:" << i << endl;
                 std::cout << " ";
                 printear(slots);
-                std::cout << " left_to_store (right shifteado 64):" << endl;
+                std::cout << " left_to_store (right shifted 64):" << endl;
                 std::cout << " ";
                 printear(left_to_store);
                 std::cout << "} " << endl;
@@ -350,17 +308,12 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
             std::cout << " right: " << endl;
             std::cout << " ";
             printear(right); 
-            std::cout << " ahora post for recorrido h:" << endl;
-            imprimir_dh(h);
-            std::cout << " ahora dh post for recorrido:" << endl;
-            imprimir_dh(dh);
             std::cout << "} " << endl;
             }
             #endif
         }
-        j+=i;
-    
-        //_mm256_storeu_si256((__m256i *) &dh[(i-1)%N], left);
+        //Added an extra step to match the actual finish
+        j+=NSIMD;
 
         h[j%N] += _mm256_extract_epi16(left,0);
         h[(j+1)%N] += _mm256_extract_epi16(left,1);
@@ -382,44 +335,18 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         dh[0] = (i==N)*_mm256_extract_epi16(left,1);
 
         #ifdef DEBUG
-        std::cout << "Array post GRAN iteracion" << endl;
+        std::cout << "Array post big iteration" << endl;
         imprimir_array(h);
         imprimir_dh(dh);
         std::cout << "I = " << i << endl;
         #endif
-        //}
-
-        // for (; i < N; i++) {
-        //         #ifdef DEBUG
-        //         std::cout << "ENTRE" << endl << "ENTRE" << endl << "ENTRE" << endl;
-        //         #endif
-        //     short mask = (h[i] > 1) ? -1 : 0;
-        //     int_left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
-        //     int_right = mask & (h[i] - int_left);
-        //     dh[(i - 1 + N) % N] += int_left;
-        //     dh[(i + 1) % N] += int_right;
-
-        //     h[i] = (h[i] > 1) ? mask & 0 : h[i];
-
-        //     short mask_prev = (i > 1) ? -1 : 0;
-        //     h[i - 1] += mask_prev & dh[(i-1)];
-        //     nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
-        // }
 
         h[NSIMD-1] += nsimd_minus_one;
         h[NSIMD] += nsimd_exactly; 
         h[N - 1] += dh[(N-1)]+loop_end; 
         h[0] += dh[0];
         //Sumo todos los casos borde.
-        nroactivos += (h[NSIMD] > 1) + (h[NSIMD-1]>1) + (h[N - 1] > 1) + (h[0] > 1);
-
-
-        #ifdef DEBUG
-        std::cout << "Array final iteracion" << endl;
-        imprimir_array(h);
-        imprimir_dh(dh);
-        #endif
-    
+        nroactivos += (h[NSIMD] > 1) + (h[NSIMD-1]>1) + (h[N - 1] > 1) + (h[0] > 1);    
 
     return nroactivos;
 }
