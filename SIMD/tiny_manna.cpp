@@ -167,19 +167,11 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     short int_right = 0;
     short loop_end = 0;
 
-    // Podemos hacer el primero solo una vez, así que pido single thread
-    //#pragma omp single nowait
     for (; i < NSIMD; i++) {
         short mask = (h[i] > 1) ? -1 : 0;
         int_left = mask & ((h[i] != 0) ? (rand() % h[i]) : 0);
         int_right = mask & (h[i] - int_left);
-
-        // #ifdef DEBUG
-        // cout << "Para i = " << i << " int_left es " << int_left << " e int_right es " << int_right <<  endl;
-        // imprimir_dh(h);
-        // imprimir_dh(dh);
-        // #endif        
-
+       
         dh[(i - 1 + N) % N] += int_left;
         dh[(i + 1) % N] += int_right;
         h[i] = (h[i] > 1) ? mask & 0 : h[i];
@@ -189,12 +181,6 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         short mask_prev = (i >= 1) ? -1 : 0;
         h[i - 1] += mask_prev & dh[i - 1];
         nroactivos += (mask_prev & (h[i - 1] > 1));
-
-        #ifdef DEBUG
-        cout << "Loop end: " << loop_end << endl;
-        // imprimir_dh(h);
-        // imprimir_dh(dh);
-        #endif        
 
     }
 
@@ -208,82 +194,48 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     __m256i left = _mm256_loadu_si256((__m256i *) &dh[i-1]);
     __m256i right = zeroes;
 
-    //#pragma omp parallel private(i, int_left, int_right) shared(nroactivos,h) num_threads(1) 
-    //{
-        for (; i < N - (N%NSIMD); i+=NSIMD) {
-            __m256i slots = _mm256_load_si256((__m256i *) &h[i]);
-            __m256i slots_gt1 = _mm256_cmpgt_epi16(slots, ones);
-            
-            __m256i active_slots;
-            bool activity = false;
+    for (; i < N - (N%NSIMD); i+=NSIMD) {
+        __m256i slots = _mm256_load_si256((__m256i *) &h[i]);
+        __m256i slots_gt1 = _mm256_cmpgt_epi16(slots, ones);
+        
+        __m256i active_slots;
+        bool activity = false;
 
-            // #ifdef DEBUG
-            // cout << "Iniciando loop con i = " << i << endl;
-            // cout << "Inicio de slots :" << endl;
-            // printear(slots);
-            // #endif
+        while(active_slots = _mm256_and_si256(slots_gt1, _mm256_cmpgt_epi16(slots,zeroes)), _mm256_movemask_epi8(active_slots)) {
+            activity = true;
+            unsigned char random = randchar();
+            __m256i randomright = MASK[random];
+            __m256i randomleft = _mm256_xor_si256(randomright, ones);
 
-            while(active_slots = _mm256_and_si256(slots_gt1, _mm256_cmpgt_epi16(slots,zeroes)), _mm256_movemask_epi8(active_slots)) {
-                activity = true;
-                unsigned char random = randchar();
-                __m256i randomright = MASK[random];
-                __m256i randomleft = _mm256_xor_si256(randomright, ones);
+            __m256i addright = _mm256_and_si256(randomright, active_slots);
+            __m256i addleft = _mm256_and_si256(randomleft, active_slots);
 
-                __m256i addright = _mm256_and_si256(randomright, active_slots);
-                __m256i addleft = _mm256_and_si256(randomleft, active_slots);
+            left = _mm256_adds_epu16(left, addleft);
+            right = _mm256_adds_epu16(right, addright);
 
-                left = _mm256_adds_epu16(left, addleft);
-                right = _mm256_adds_epu16(right, addright);
-
-                slots = _mm256_subs_epu16(slots, _mm256_and_si256(active_slots, ones));       
-            
-                // #ifdef DEBUG
-                // cout << "i = " << i << endl;
-                // cout << "slots:" << endl;
-                // printear(slots);
-                // #endif
-            
-            }
-
-            // #ifdef DEBUG
-            // cout << "Slots post loop con i:" << i << endl;
-            // printear(slots);
-            // #endif
-
-            __m256i shift_right = shift64right(right);
-            __m256i left_to_store = _mm256_adds_epu16(left, shift_right);
-
-            // #ifdef DEBUG
-            // cout << "left_to_store (right shifteado 64):" << endl;
-            // printear(left_to_store);
-            // #endif
-
-            left = shift192left(right);
-            right = zeroes;
-
-            if(activity) _mm256_store_si256((__m256i *) &h[i], slots);
-            
-            if(! _mm256_testz_si256(left_to_store, left_to_store)) {
-            
-                slots = _mm256_loadu_si256((__m256i *) &h[i-1]);
-                slots = _mm256_adds_epu16(slots, left_to_store);
-
-                _mm256_storeu_si256((__m256i *) &h[i-1], slots);
-
-                __m256i tmp = _mm256_cmpgt_epi16(slots, ones);
-                nroactivos += __builtin_popcount(_mm256_movemask_epi8(tmp))/2;
-            }
-            // #ifdef DEBUG
-            // cout << "left: " << endl;
-            // printear(left); 
-            // cout << "right: " << endl;
-            // printear(right); 
-            // cout << "ahora post for recorrido h:" << endl;
-            // imprimir_dh(h);
-            // cout << "ahora dh post for recorrido:" << endl;
-            // imprimir_dh(dh);
-            // #endif
+            slots = _mm256_subs_epu16(slots, _mm256_and_si256(active_slots, ones));       
+        
         }
+
+        __m256i shift_right = shift64right(right);
+        __m256i left_to_store = _mm256_adds_epu16(left, shift_right);
+
+        left = shift192left(right);
+        right = zeroes;
+
+        if(activity) _mm256_store_si256((__m256i *) &h[i], slots);
+        
+        if(! _mm256_testz_si256(left_to_store, left_to_store)) {
+        
+            slots = _mm256_loadu_si256((__m256i *) &h[i-1]);
+            slots = _mm256_adds_epu16(slots, left_to_store);
+
+            _mm256_storeu_si256((__m256i *) &h[i-1], slots);
+
+            __m256i tmp = _mm256_cmpgt_epi16(slots, ones);
+            nroactivos += __builtin_popcount(_mm256_movemask_epi8(tmp))/2;
+        }
+    }
     
     _mm256_storeu_si256((__m256i *) &dh[(i-1)%N], left);
 
@@ -291,11 +243,10 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
     dh[0] = (i==N)*_mm256_extract_epi16(left,0);
 
     #ifdef DEBUG
-    cout << "Array post GRAN iteracion" << endl;
+    cout << "Array post big iteration" << endl;
     imprimir_array(h);
     imprimir_dh(dh);
     #endif
-    //}
 
     for (; i < N; i++) {
         short mask = (h[i] > 1) ? -1 : 0;
@@ -311,13 +262,13 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
         nroactivos += (mask_prev & (h[i - 1] > 1)) ? 1 : 0;
     }
 
-    h[N - 1] += dh[(N-1)]; 
+    h[N - 1] += dh[(N-1)]+loop_end; 
     h[0] += dh[0];
     nroactivos += (h[N - 1] > 1);
     nroactivos += (h[0] > 1);
 
     #ifdef DEBUG
-    cout << "Array final iteracion" << endl;
+    cout << "Array final iteration" << endl;
     imprimir_array(h);
     imprimir_dh(dh);
     #endif
