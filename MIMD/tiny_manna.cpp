@@ -343,7 +343,7 @@ static unsigned int descargar(Manna_Array __restrict__ a, Manna_Array __restrict
 
         h[NSIMD-1] += nsimd_minus_one;
         h[NSIMD] += nsimd_exactly; 
-        h[N - 1] += dh[(N-1)]+loop_end; 
+        h[N - 1] += dh[(N-1)]; 
         h[0] += dh[0];
         //Sumo todos los casos borde.
         nroactivos += (h[NSIMD] > 1) + (h[NSIMD-1]>1) + (h[N - 1] > 1) + (h[0] > 1);    
