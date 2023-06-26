@@ -1,12 +1,14 @@
 # Tiny Manna
 
-A miniaturized Sandpile Model, used as an subject of experiments to work on compilation, HPC, SIMD, MIMD improvements.
+A miniaturized Sandpile Model was used as a subject of experiments to work on the compilation, HPC, SIMD, and MIMD improvements.
 
 This is currently a work in progress for parallel computation subject with @inescipullo and @ZimmSebas
 
-The Original folder just has experiments with flags a couple of improvements over the code. 
+The Original folder just has experimented with flags and a couple of improvements over the code. 
 
 The SIMD folder has an intrinsic approach with 256bits vector instructions (using a pack of 16 shorts)
+
+The MIMD folder has a combination of SIMD intrinsics with OpenMP parallelization.
 
 ## How to run
 
@@ -20,7 +22,7 @@ make
 But for more efficiency, you can specify compilator and flags like:
 
 ```bash
-make CXX=g++ CXXFLAGS="-std=c++17 -O3 -march=native"
+make CXX=g++ CXXFLAGS="-std=c++17 -O3 -march=native -mavx2"
 ./tiny_manna
 ```
 
